@@ -2,9 +2,12 @@ package sshutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
+	"os"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -12,18 +15,28 @@ import (
 
 // ReverseProxyConfig defines the configuration options for launching a reverse proxy of two SSH endpoints.
 type ReverseProxyConfig struct {
-	ServerConn     *ssh.ServerConn
-	ServerChannels <-chan ssh.NewChannel
-	ServerRequests <-chan *ssh.Request
-	TargetConn     net.Conn
-	TargetHostname string
-	TargetClientConfig   *ssh.ClientConfig
+	ServerConn         *ssh.ServerConn
+	ServerChannels     <-chan ssh.NewChannel
+	ServerRequests     <-chan *ssh.Request
+	TargetConn         net.Conn
+	TargetHostname     string
+	TargetClientConfig *ssh.ClientConfig
+
+	// ErrorLog specifies an optional logger for errors
+	// that occur when attempting to proxy.
+	// If nil, logging is done via the log package's standard logger.
+	ErrorLog *log.Logger
 }
 
 // ReverseProxy performs a single host reverse proxy on two SSH connections.
 func ReverseProxy(ctx context.Context, config ReverseProxyConfig) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	logger := config.ErrorLog
+	if logger == nil {
+		logger = log.New(os.Stderr, "", 0)
+	}
 
 	destConn, destChans, destReqs, err := ssh.NewClientConn(config.TargetConn, config.TargetHostname, config.TargetClientConfig)
 	if err != nil {
@@ -35,10 +48,10 @@ func ReverseProxy(ctx context.Context, config ReverseProxyConfig) error {
 		shutdownErr <- config.ServerConn.Conn.Wait()
 	}()
 
-	go processChannels(ctx, destConn, config.ServerChannels)
-	go processChannels(ctx, config.ServerConn.Conn, destChans)
-	go processRequests(ctx, destConn, config.ServerRequests)
-	go processRequests(ctx, config.ServerConn.Conn, destReqs)
+	go processChannels(ctx, destConn, config.ServerChannels, logger)
+	go processChannels(ctx, config.ServerConn.Conn, destChans, logger)
+	go processRequests(ctx, destConn, config.ServerRequests, logger)
+	go processRequests(ctx, config.ServerConn.Conn, destReqs, logger)
 
 	select {
 	case <-ctx.Done():
@@ -49,30 +62,31 @@ func ReverseProxy(ctx context.Context, config ReverseProxyConfig) error {
 }
 
 // processChannels handles each ssh.NewChannel concurrently.
-func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.NewChannel) {
+func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.NewChannel, logger *log.Logger) {
 	defer destConn.Close()
 	for newCh := range chans {
 		newCh := newCh
 		go func() {
-			if err := handleChannel(ctx, destConn, newCh); err != nil {
-				// TODO
+			err := handleChannel(ctx, destConn, newCh, logger)
+			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
+				logger.Printf("sshutil: ReverseProxy handle channel error: %v", err)
 			}
 		}()
 	}
 }
 
 // processRequests handles each *ssh.Request in series.
-func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh.Request) {
+func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh.Request, logger *log.Logger) {
 	for req := range requests {
 		req := req
 		if err := handleRequest(ctx, dest, req); err != nil {
-			// TODO
+			logger.Printf("sshutil: ReverseProxy handle request error: %v", err)
 		}
 	}
 }
 
 // handleChannel performs the bicopy between the destination SSH connection and a new incoming channel.
-func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewChannel) error {
+func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewChannel, logger *log.Logger) error {
 	destCh, destReqs, err := destConn.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
 	if err != nil {
 		if openChanErr, ok := err.(*ssh.OpenChannelError); ok {
@@ -95,20 +109,20 @@ func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewCha
 	// before the ssh.Channels themselves are closed.
 	requestsDone := make(chan struct{})
 	go func() {
-		defer func() { requestsDone <- struct{}{} }()
-		processRequests(ctx, channelRequestDest{originCh}, destReqs)
+		defer close(requestsDone)
+		processRequests(ctx, channelRequestDest{originCh}, destReqs, logger)
 	}()
 
 	go func() {
 		// TODO(@cmoog) Verify: from limited testing, this request channel does not appear to be closed
 		// by the client causing this function to hang if we wait on it.
-		processRequests(ctx, channelRequestDest{destCh}, originRequests)
+		processRequests(ctx, channelRequestDest{destCh}, originRequests, logger)
 	}()
 
 	if err := bicopy(ctx, originCh, destCh); err != nil {
 		return fmt.Errorf("bidirectional copy: %w", err)
 	}
-	
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -121,9 +135,6 @@ func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewCha
 // but does not perform complete closure.
 // It will block until the context is cancelled or one of the
 // copies has completed.
-//
-// ! this is subtly different from xio.Bicopy, which
-// fully closes both connections after one copy exits.
 func bicopy(ctx context.Context, c1, c2 ssh.Channel) error {
 	ctx1, cancel := context.WithCancel(ctx)
 	defer cancel()
