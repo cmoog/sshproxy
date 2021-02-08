@@ -13,12 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// ReverseProxyConfig defines the configuration options for launching a reverse proxy of two SSH endpoints.
-type ReverseProxyConfig struct {
-	ServerConn         *ssh.ServerConn
-	ServerChannels     <-chan ssh.NewChannel
-	ServerRequests     <-chan *ssh.Request
-	TargetConn         net.Conn
+type ReverseProxy struct {
 	TargetHostname     string
 	TargetClientConfig *ssh.ClientConfig
 
@@ -28,30 +23,46 @@ type ReverseProxyConfig struct {
 	ErrorLog *log.Logger
 }
 
-// ReverseProxy performs a single host reverse proxy on two SSH connections.
-func ReverseProxy(ctx context.Context, config ReverseProxyConfig) error {
+// ReverseProxy performs a single host reverse proxy instance.
+func NewSingleHostReverseProxy(targetHost string, clientConfig *ssh.ClientConfig) *ReverseProxy {
+	return &ReverseProxy{
+		TargetHostname:     targetHost,
+		TargetClientConfig: clientConfig,
+	}
+}
+func (r *ReverseProxy) Serve(ctx context.Context, serverConn net.Conn, serverConfig *ssh.ServerConfig) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logger := config.ErrorLog
+	logger := r.ErrorLog
 	if logger == nil {
 		logger = log.New(os.Stderr, "", 0)
 	}
 
-	destConn, destChans, destReqs, err := ssh.NewClientConn(config.TargetConn, config.TargetHostname, config.TargetClientConfig)
+	// TODO: do we need to make "network" an argument?
+	targetConn, err := net.DialTimeout("tcp", r.TargetHostname, r.TargetClientConfig.Timeout)
 	if err != nil {
-		return fmt.Errorf("new client conn: %w", err)
+		return err
+	}
+	destConn, destChans, destReqs, err := ssh.NewClientConn(targetConn, r.TargetHostname, r.TargetClientConfig)
+	if err != nil {
+		return err
+	}
+
+	sshServerConn, serverChans, serverReqs, err := ssh.NewServerConn(serverConn, serverConfig)
+	if err != nil {
+		return err
 	}
 
 	shutdownErr := make(chan error, 1)
 	go func() {
-		shutdownErr <- config.ServerConn.Conn.Wait()
+		shutdownErr <- sshServerConn.Conn.Wait()
 	}()
 
-	go processChannels(ctx, destConn, config.ServerChannels, logger)
-	go processChannels(ctx, config.ServerConn.Conn, destChans, logger)
-	go processRequests(ctx, destConn, config.ServerRequests, logger)
-	go processRequests(ctx, config.ServerConn.Conn, destReqs, logger)
+	go processChannels(ctx, destConn, serverChans, logger)
+	go processChannels(ctx, sshServerConn.Conn, destChans, logger)
+	go processRequests(ctx, destConn, serverReqs, logger)
+	go processRequests(ctx, sshServerConn.Conn, destReqs, logger)
 
 	select {
 	case <-ctx.Done():
@@ -79,7 +90,8 @@ func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.Ne
 func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh.Request, logger *log.Logger) {
 	for req := range requests {
 		req := req
-		if err := handleRequest(ctx, dest, req); err != nil {
+		err := handleRequest(ctx, dest, req)
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
 			logger.Printf("sshutil: ReverseProxy handle request error: %v", err)
 		}
 	}

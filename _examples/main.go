@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"github.com/cmoog/sshutil"
 	"golang.org/x/crypto/ssh"
@@ -42,32 +43,17 @@ func main() {
 	}
 	serverConfig.AddHostKey(signer)
 
-	serverConn, serverChannels, serverRequests, err := ssh.NewServerConn(conn, &serverConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
 	const targetHost = "localhost:22"
-	targetConn, err := net.Dial("tcp", targetHost)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	clientConfig := ssh.ClientConfig{
 		User: "your_username",
 		// password auth and public key auth work just as you'd expect, for simpliciy, we'll use
 		// password auth in this example
 		Auth:            []ssh.AuthMethod{ssh.Password("your_password")},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         3 * time.Second,
 	}
 
-	err = sshutil.ReverseProxy(ctx, sshutil.ReverseProxyConfig{
-		ServerConn:         serverConn,
-		ServerChannels:     serverChannels,
-		ServerRequests:     serverRequests,
-		TargetConn:         targetConn,
-		TargetHostname:     targetHost,
-		TargetClientConfig: &clientConfig,
-	})
+	err = sshutil.NewSingleHostReverseProxy(targetHost, &clientConfig).Serve(ctx, conn, &serverConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
