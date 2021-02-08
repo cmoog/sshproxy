@@ -42,16 +42,18 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn net.Conn, serverCon
 	// TODO: do we need to make "network" an argument?
 	targetConn, err := net.DialTimeout("tcp", r.TargetHostname, r.TargetClientConfig.Timeout)
 	if err != nil {
-		return err
+		return fmt.Errorf("dial reverse proxy target: %w", err)
 	}
+	defer targetConn.Close()
+
 	destConn, destChans, destReqs, err := ssh.NewClientConn(targetConn, r.TargetHostname, r.TargetClientConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("new ssh client conn: %w", err)
 	}
 
 	sshServerConn, serverChans, serverReqs, err := ssh.NewServerConn(serverConn, serverConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("accept ssh server conn: %w", err)
 	}
 
 	shutdownErr := make(chan error, 1)
