@@ -13,6 +13,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// ReverseProxy is an SSH Handler that takes an incoming request and sends it to another server,
+// proxying the response back to the client.
 type ReverseProxy struct {
 	TargetHostname     string
 	TargetClientConfig *ssh.ClientConfig
@@ -23,13 +25,15 @@ type ReverseProxy struct {
 	ErrorLog *log.Logger
 }
 
-// ReverseProxy performs a single host reverse proxy instance.
+// NewSingleHostReverseProxy constructs a new *ReverseProxy instance.
 func NewSingleHostReverseProxy(targetHost string, clientConfig *ssh.ClientConfig) *ReverseProxy {
 	return &ReverseProxy{
 		TargetHostname:     targetHost,
 		TargetClientConfig: clientConfig,
 	}
 }
+
+// Serve executes the reverse proxy between the sepcified target client hostname and the server connection.
 func (r *ReverseProxy) Serve(ctx context.Context, serverConn net.Conn, serverConfig *ssh.ServerConfig) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
