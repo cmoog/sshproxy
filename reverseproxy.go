@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -40,9 +39,9 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn net.Conn, serverCon
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logger := r.ErrorLog
+	var logger logger = r.ErrorLog
 	if logger == nil {
-		logger = log.New(os.Stderr, "", 0)
+		logger = defaultLogger{}
 	}
 
 	// TODO: do we need to make "network" an argument?
@@ -80,10 +79,20 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn net.Conn, serverCon
 	}
 }
 
+type defaultLogger struct{}
+
+// wrap the default logger
+func (d defaultLogger) Printf(format string, v ...interface{}) { log.Printf(format, v...) }
+
+type logger interface {
+	Printf(format string, v ...interface{})
+}
+
 // processChannels handles each ssh.NewChannel concurrently.
-func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.NewChannel, logger *log.Logger) {
+func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.NewChannel, logger logger) {
 	defer destConn.Close()
 	for newCh := range chans {
+		// reset the var scope for each goroutine
 		newCh := newCh
 		go func() {
 			err := handleChannel(ctx, destConn, newCh, logger)
@@ -95,7 +104,7 @@ func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.Ne
 }
 
 // processRequests handles each *ssh.Request in series.
-func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh.Request, logger *log.Logger) {
+func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh.Request, logger logger) {
 	for req := range requests {
 		req := req
 		err := handleRequest(ctx, dest, req)
@@ -106,7 +115,7 @@ func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh
 }
 
 // handleChannel performs the bicopy between the destination SSH connection and a new incoming channel.
-func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewChannel, logger *log.Logger) error {
+func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewChannel, logger logger) error {
 	destCh, destReqs, err := destConn.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
 	if err != nil {
 		if openChanErr, ok := err.(*ssh.OpenChannelError); ok {
