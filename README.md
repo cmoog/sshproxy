@@ -1,7 +1,7 @@
 # sshutil
 
-[![Documentation](https://godoc.org/github.com/cmoog/sshutil?status.svg)](https://pkg.go.dev/github.com/cmoog/sshutil)
-[![Go Report Card](https://goreportcard.com/badge/github.com/cmoog/sshutil)](https://goreportcard.com/report/github.com/cmoog/sshutil)
+[![Documentation](https://godoc.org/cmoog.io/sshutil?status.svg)](https://pkg.go.dev/cmoog.io/sshutil)
+[![Go Report Card](https://goreportcard.com/badge/cmoog.io/sshutil)](https://goreportcard.com/report/cmoog.io/sshutil)
 
 `sshutil` provides higher-level SSH features in Go built
 atop the `golang.org/x/crypto/ssh` package.
