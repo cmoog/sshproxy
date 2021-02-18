@@ -1,4 +1,4 @@
-module github.com/cmoog/sshutil
+module cmoog.io/sshutil
 
 go 1.15
 
