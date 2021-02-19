@@ -12,7 +12,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/cmoog/sshutil"
+	"cmoog.io/sshutil"
 	"golang.org/x/crypto/ssh"
 )
 
