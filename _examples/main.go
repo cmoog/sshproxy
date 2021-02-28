@@ -52,8 +52,12 @@ func main() {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         3 * time.Second,
 	}
+	serverConn, serverChans, serverReqs, err := ssh.NewServerConn(conn, &serverConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	err = sshutil.NewSingleHostReverseProxy(targetHost, &clientConfig).Serve(ctx, conn, &serverConfig)
+	err = sshutil.NewSingleHostReverseProxy(targetHost, &clientConfig).Serve(ctx, serverConn, serverChans, serverReqs)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -19,5 +19,5 @@ of the HTTP reverse proxy implementation.
 ```golang
 httputil.NewSingleHostReverseProxy(targetURL).ServeHTTP(w, r)
 
-err = sshutil.NewSingleHostReverseProxy(targetHost, &clientConfig).Serve(ctx, conn, &serverConfig)
+err = sshutil.NewSingleHostReverseProxy(targetHost, &clientConfig).Serve(ctx, conn, channels, requests)
 ```

@@ -35,7 +35,7 @@ func NewSingleHostReverseProxy(targetHost string, clientConfig *ssh.ClientConfig
 }
 
 // Serve executes the reverse proxy between the sepcified target client hostname and the server connection.
-func (r *ReverseProxy) Serve(ctx context.Context, serverConn net.Conn, serverConfig *ssh.ServerConfig) error {
+func (r *ReverseProxy) Serve(ctx context.Context, serverConn *ssh.ServerConn, serverChans <-chan ssh.NewChannel, serverReqs <-chan *ssh.Request) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -56,20 +56,15 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn net.Conn, serverCon
 		return fmt.Errorf("new ssh client conn: %w", err)
 	}
 
-	sshServerConn, serverChans, serverReqs, err := ssh.NewServerConn(serverConn, serverConfig)
-	if err != nil {
-		return fmt.Errorf("accept ssh server conn: %w", err)
-	}
-
 	shutdownErr := make(chan error, 1)
 	go func() {
-		shutdownErr <- sshServerConn.Conn.Wait()
+		shutdownErr <- serverConn.Conn.Wait()
 	}()
 
 	go processChannels(ctx, destConn, serverChans, logger)
-	go processChannels(ctx, sshServerConn.Conn, destChans, logger)
+	go processChannels(ctx, serverConn.Conn, destChans, logger)
 	go processRequests(ctx, destConn, serverReqs, logger)
-	go processRequests(ctx, sshServerConn.Conn, destReqs, logger)
+	go processRequests(ctx, serverConn.Conn, destReqs, logger)
 
 	select {
 	case <-ctx.Done():
