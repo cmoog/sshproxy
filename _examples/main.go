@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"net"
 	"time"
 
 	"cmoog.io/sshutil"
@@ -29,8 +30,6 @@ import (
 const exampleUsername = "username"
 const examplePassword = "password"
 
-var _ sshutil.Router = dumbRouter{}
-
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -44,22 +43,35 @@ func main() {
 	}
 	serverConfig.AddHostKey(signer)
 
-	err = sshutil.ServeProxy(ctx, dumbRouter{}, "localhost:2222", &serverConfig)
+	l, err := net.Listen("tcp", "localhost:2222")
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-type dumbRouter struct{}
-
-func (d dumbRouter) Route(context.Context, *ssh.ServerConn) (targetAddr string, client *ssh.ClientConfig, err error) {
-	clientConfig := ssh.ClientConfig{
-		User:            exampleUsername,
-		Auth:            []ssh.AuthMethod{ssh.Password(examplePassword)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         3 * time.Second,
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go func() {
+			defer conn.Close()
+			serverConn, serverChans, serverReqs, err := ssh.NewServerConn(conn, &serverConfig)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			rp := sshutil.NewSingleHostReverseProxy("localhost:22", &ssh.ClientConfig{
+				User:            exampleUsername,
+				Auth:            []ssh.AuthMethod{ssh.Password(examplePassword)},
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+				Timeout:         3 * time.Second,
+			})
+			err = rp.Serve(ctx, serverConn, serverChans, serverReqs)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}()
 	}
-	return "localhost:22", &clientConfig, nil
 }
 
 func generateSigner() (ssh.Signer, error) {

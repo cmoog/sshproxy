@@ -36,9 +36,9 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn *ssh.ServerConn, se
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var logger logger = r.ErrorLog
-	if logger == nil {
-		logger = defaultLogger{}
+	var logger logger = defaultLogger{}
+	if r.ErrorLog != nil {
+		logger = r.ErrorLog
 	}
 
 	// TODO: do we need to make "network" an argument?
