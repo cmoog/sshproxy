@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -128,62 +127,65 @@ func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewCha
 	}
 	defer originCh.Close()
 
-	// TODO(@cmoog) verify that this blocking behavior is correct.
-	// As is, only one requests channel must be fully processed
-	// before the ssh.Channels themselves are closed.
-	requestsDone := make(chan struct{})
+	destRequestsDone := make(chan struct{})
 	go func() {
-		defer close(requestsDone)
+		defer close(destRequestsDone)
 		processRequests(ctx, channelRequestDest{originCh}, destReqs, logger)
 	}()
 
-	go func() {
-		// TODO(@cmoog) Verify: from limited testing, this request channel does not appear to be closed
-		// by the client causing this function to hang if we wait on it.
-		processRequests(ctx, channelRequestDest{destCh}, originRequests, logger)
-	}()
+	// This request channel does not get closed
+	// by the client causing this function to hang if we wait on it.
+	go processRequests(ctx, channelRequestDest{destCh}, originRequests, logger)
 
-	if err := bicopy(ctx, originCh, destCh); err != nil {
-		return fmt.Errorf("bidirectional copy: %w", err)
+	if err := bicopy(ctx, originCh, destCh, logger); err != nil {
+		return fmt.Errorf("channel bidirectional copy: %w", err)
 	}
 
 	select {
+	case <-destRequestsDone:
+		return nil
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-requestsDone:
-		return nil
 	}
 }
 
 // bicopy copies data between the two channels,
 // but does not perform complete closure.
-// It will block until the context is cancelled or one of the
-// copies has completed.
-func bicopy(ctx context.Context, c1, c2 ssh.Channel) error {
-	ctx1, cancel := context.WithCancel(ctx)
-	defer cancel()
-
+// It will block until the context is cancelled or the `alpha` channel
+// has completed writing its data. Writes from the `beta` channel are not
+// waited on.
+func bicopy(ctx context.Context, alpha, beta ssh.Channel, logger logger) error {
 	copyWithCloseWrite := func(a, b ssh.Channel) {
-		defer cancel()
-		defer func() { _ = a.CloseWrite() }()
+		defer a.CloseWrite()
 
-		var wg sync.WaitGroup
-		wg.Add(1)
+		copyDone := make(chan struct{})
 		go func() {
-			defer wg.Done()
-			_, _ = io.Copy(a, b)
+			defer close(copyDone)
+			_, err := io.Copy(a, b)
+			if err != nil && !errors.Is(err, io.EOF) {
+				logger.Printf("sshutil: bicopy channel: %v", err)
+			}
 		}()
-		_, _ = io.Copy(a.Stderr(), b.Stderr())
-		wg.Wait()
+		_, err := io.Copy(a.Stderr(), b.Stderr())
+		if err != nil && !errors.Is(err, io.EOF) {
+			logger.Printf("sshutil: bicopy channel: %v", err)
+		}
+		<-copyDone
 	}
 
-	go copyWithCloseWrite(c1, c2)
-	go copyWithCloseWrite(c2, c1)
+	alphaWriteDone := make(chan struct{})
+	go func() {
+		defer close(alphaWriteDone)
+		copyWithCloseWrite(alpha, beta)
+	}()
+	go copyWithCloseWrite(beta, alpha)
 
-	<-ctx1.Done()
-
-	// ignore Copy and CloseWrite errors, only error if parent context is done
-	return ctx.Err()
+	select {
+	case <-alphaWriteDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // channelRequestDest wraps the ssh.Channel type to conform with the standard SendRequest function signiture.
