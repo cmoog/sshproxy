@@ -33,7 +33,7 @@ func NewSingleHostReverseProxy(targetHost string, clientConfig *ssh.ClientConfig
 	}
 }
 
-// Serve executes the reverse proxy between the sepcified target client hostname and the server connection.
+// Serve executes the reverse proxy between the specified target client and the server connection.
 func (r *ReverseProxy) Serve(ctx context.Context, serverConn *ssh.ServerConn, serverChans <-chan ssh.NewChannel, serverReqs <-chan *ssh.Request) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -76,7 +76,7 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn *ssh.ServerConn, se
 type defaultLogger struct{}
 
 // wrap the default logger
-func (d defaultLogger) Printf(format string, v ...interface{}) { log.Printf(format, v...) }
+func (defaultLogger) Printf(format string, v ...interface{}) { log.Printf(format, v...) }
 
 type logger interface {
 	Printf(format string, v ...interface{})
@@ -155,30 +155,12 @@ func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewCha
 // has completed writing its data. Writes from the `beta` channel are not
 // waited on.
 func bicopy(ctx context.Context, alpha, beta ssh.Channel, logger logger) error {
-	copyWithCloseWrite := func(a, b ssh.Channel) {
-		defer a.CloseWrite()
-
-		copyDone := make(chan struct{})
-		go func() {
-			defer close(copyDone)
-			_, err := io.Copy(a, b)
-			if err != nil && !errors.Is(err, io.EOF) {
-				logger.Printf("sshutil: bicopy channel: %v", err)
-			}
-		}()
-		_, err := io.Copy(a.Stderr(), b.Stderr())
-		if err != nil && !errors.Is(err, io.EOF) {
-			logger.Printf("sshutil: bicopy channel: %v", err)
-		}
-		<-copyDone
-	}
-
 	alphaWriteDone := make(chan struct{})
 	go func() {
 		defer close(alphaWriteDone)
-		copyWithCloseWrite(alpha, beta)
+		copyChannels(alpha, beta, logger)
 	}()
-	go copyWithCloseWrite(beta, alpha)
+	go copyChannels(beta, alpha, logger)
 
 	select {
 	case <-alphaWriteDone:
@@ -186,6 +168,28 @@ func bicopy(ctx context.Context, alpha, beta ssh.Channel, logger logger) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// copyChannels pipes data from the writer to the reader channel, calling
+// w.CloseWrite when writes have completed. This operation blocks until
+// both the stderr and primary copy streams exit. Non EOF errors are logged
+// to the given logger.
+func copyChannels(w, r ssh.Channel, logger logger) {
+	defer func() { _ = w.CloseWrite() }()
+
+	copyDone := make(chan struct{})
+	go func() {
+		defer close(copyDone)
+		_, err := io.Copy(w, r)
+		if err != nil && !errors.Is(err, io.EOF) {
+			logger.Printf("sshutil: bicopy channel: %v", err)
+		}
+	}()
+	_, err := io.Copy(w.Stderr(), r.Stderr())
+	if err != nil && !errors.Is(err, io.EOF) {
+		logger.Printf("sshutil: bicopy channel: %v", err)
+	}
+	<-copyDone
 }
 
 // channelRequestDest wraps the ssh.Channel type to conform with the standard SendRequest function signiture.
