@@ -18,11 +18,15 @@ type Router interface {
 // ServeProxy listens on the TCP network address addr and then calls
 // the Router to route incoming SSH connections.
 func ServeProxy(ctx context.Context, router Router, addr string, serverConfig *ssh.ServerConfig) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
 	go func() { defer listener.Close(); <-ctx.Done() }()
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil && errors.Is(err, net.ErrClosed) {
