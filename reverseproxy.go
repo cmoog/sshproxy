@@ -1,6 +1,4 @@
-// Package sshutil provides higher-level SSH features built
-// atop the `golang.org/x/crypto/ssh` package.
-package sshutil // import "cmoog.io/sshutil"
+package sshutil
 
 import (
 	"context"
@@ -16,7 +14,7 @@ import (
 // ReverseProxy is an SSH Handler that takes an incoming request and sends it to another server,
 // proxying the response back to the client.
 type ReverseProxy struct {
-	TargetHostname     string
+	TargetAddress      string
 	TargetClientConfig *ssh.ClientConfig
 
 	// ErrorLog specifies an optional logger for errors
@@ -26,9 +24,9 @@ type ReverseProxy struct {
 }
 
 // NewSingleHostReverseProxy constructs a new *ReverseProxy instance.
-func NewSingleHostReverseProxy(targetHost string, clientConfig *ssh.ClientConfig) *ReverseProxy {
+func NewSingleHostReverseProxy(targetAddr string, clientConfig *ssh.ClientConfig) *ReverseProxy {
 	return &ReverseProxy{
-		TargetHostname:     targetHost,
+		TargetAddress:      targetAddr,
 		TargetClientConfig: clientConfig,
 	}
 }
@@ -44,13 +42,13 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn *ssh.ServerConn, se
 	}
 
 	// TODO: do we need to make "network" an argument?
-	targetConn, err := net.DialTimeout("tcp", r.TargetHostname, r.TargetClientConfig.Timeout)
+	targetConn, err := net.DialTimeout("tcp", r.TargetAddress, r.TargetClientConfig.Timeout)
 	if err != nil {
 		return fmt.Errorf("dial reverse proxy target: %w", err)
 	}
 	defer targetConn.Close()
 
-	destConn, destChans, destReqs, err := ssh.NewClientConn(targetConn, r.TargetHostname, r.TargetClientConfig)
+	destConn, destChans, destReqs, err := ssh.NewClientConn(targetConn, r.TargetAddress, r.TargetClientConfig)
 	if err != nil {
 		return fmt.Errorf("new ssh client conn: %w", err)
 	}
@@ -193,6 +191,8 @@ func copyChannels(w, r ssh.Channel, logger logger) {
 }
 
 // channelRequestDest wraps the ssh.Channel type to conform with the standard SendRequest function signiture.
+// This allows for convenient code re-use in piping channel-level requests as well as global, connection-level
+// requests.
 type channelRequestDest struct {
 	ssh.Channel
 }

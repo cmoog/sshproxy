@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"net"
 	"time"
 
 	"cmoog.io/sshutil"
@@ -18,22 +17,24 @@ import (
 
 // The following example demonstrates a simple usage of sshutil.ReverseProxy.
 //
-// Run this example on your local machine, with "your_username" and "your_password"
+// Run this example on your local machine, with "username" and "password"
 // substituted properly. This will allow you to dial port 2222 and be reverse
 // proxied through to your OpenSSH server on port 22.
+//
+// Run this server in the backround, then dial
+//
+//   $ ssh -p2222 localhost
+//
+
+const exampleUsername = "username"
+const examplePassword = "password"
+
+var _ sshutil.Router = dumbRouter{}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	listener, err := net.Listen("tcp", "localhost:2222")
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn, err := listener.Accept()
-	if err != nil {
-		log.Fatal(err)
-	}
 	serverConfig := ssh.ServerConfig{
 		NoClientAuth: true,
 	}
@@ -43,24 +44,22 @@ func main() {
 	}
 	serverConfig.AddHostKey(signer)
 
-	const targetHost = "localhost:22"
+	err = sshutil.ServeProxy(ctx, dumbRouter{}, "localhost:2222", &serverConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+type dumbRouter struct{}
+
+func (d dumbRouter) Route(context.Context, *ssh.ServerConn) (targetAddr string, client *ssh.ClientConfig, err error) {
 	clientConfig := ssh.ClientConfig{
-		User: "your_username",
-		// password auth and public key auth work just as you'd expect, for simpliciy, we'll use
-		// password auth in this example
-		Auth:            []ssh.AuthMethod{ssh.Password("your_password")},
+		User:            exampleUsername,
+		Auth:            []ssh.AuthMethod{ssh.Password(examplePassword)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         3 * time.Second,
 	}
-	serverConn, serverChans, serverReqs, err := ssh.NewServerConn(conn, &serverConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = sshutil.NewSingleHostReverseProxy(targetHost, &clientConfig).Serve(ctx, serverConn, serverChans, serverReqs)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return "localhost:22", &clientConfig, nil
 }
 
 func generateSigner() (ssh.Signer, error) {
