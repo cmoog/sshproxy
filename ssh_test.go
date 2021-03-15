@@ -263,7 +263,7 @@ func testRequestError(t *testing.T, client *ssh.Client) {
 	}
 }
 
-type listener func(n string, addr string) (net.Listener, error)
+type listener func(net string, addr string) (net.Listener, error)
 type dialer func(net, addr string) (net.Conn, error)
 
 func tcpPipeWithDialer(dial dialer, listen listener) (net.Conn, net.Conn, error) {
@@ -272,7 +272,6 @@ func tcpPipeWithDialer(dial dialer, listen listener) (net.Conn, net.Conn, error)
 }
 
 func unixSocketPipe(t *testing.T, dial dialer, listen listener) (net.Conn, net.Conn, error) {
-
 	socket := filepath.Join("/tmp", "sshutil-unix-test-"+strconv.Itoa(rand.Int())+".sock")
 	cleanup := func() { _ = os.Remove(socket) }
 	cleanup()

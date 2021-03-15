@@ -29,7 +29,10 @@ setup/tests: build/image/tests clean
 .PHONY: setup/tests
 
 test: setup/tests
-	go test ./... -cover -count 10 \
+	go test ./... \
+		-count 10 \
+		-race \
+		-coverprofile=coverage.txt -covermode=atomic \
 		-ssh-addr localhost:$(TEST_SERVER_PORT) \
 		-ssh-user $(TEST_USER) \
 		-ssh-passwd $(TEST_PASSWORD)
