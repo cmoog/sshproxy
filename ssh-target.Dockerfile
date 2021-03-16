@@ -15,5 +15,6 @@ RUN useradd --create-home --shell /bin/bash ${USER}
 RUN echo ${USER}:${PASSWORD} | chpasswd
 
 RUN echo "Port ${PORT}" >> /etc/ssh/sshd_config
+RUN echo "AcceptEnv *" >> /etc/ssh/sshd_config
 
 CMD [ "sh", "-c", "/usr/sbin/sshd && sleep infinity" ]

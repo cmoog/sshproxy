@@ -25,6 +25,7 @@ var (
 )
 
 func Test_reverseProxy(t *testing.T) {
+	t.Parallel()
 	if *addr == "" || *user == "" || *password == "" {
 		t.Fatalf("-ssh-addr, -ssh-user, and -ssh-passwd are all required flags")
 	}

@@ -27,8 +27,8 @@ func testSSHClient(t *testing.T, client *ssh.Client) {
 	t.Run("tcp_forward_local", func(t *testing.T) { testTCPLocal(t, client) })
 	t.Run("tcp_forward_remote", func(t *testing.T) { testTCPRemote(t, client) })
 	t.Run("unix_forward", func(t *testing.T) { t.Skip(); testUnixForward(t, client) })
+	t.Run("invalid_request", func(t *testing.T) { testRequestError(t, client) })
 	t.Run("channel_error", func(t *testing.T) { testChannelError(t, client) })
-	t.Run("request_error", func(t *testing.T) { t.Skip(); testRequestError(t, client) })
 }
 
 func testTCPLocal(t *testing.T, client *ssh.Client) {
@@ -191,8 +191,6 @@ func testExitCode(t *testing.T, client *ssh.Client) {
 }
 
 func testEnvironmentVar(t *testing.T, client *ssh.Client) {
-	t.Skip("most default OpenSSH configurations do not permit this")
-
 	session, err := client.NewSession()
 	if err != nil {
 		t.Fatalf("new ssh session: %v", err)
@@ -241,17 +239,6 @@ func testChannelError(t *testing.T, client *ssh.Client) {
 
 func testRequestError(t *testing.T, client *ssh.Client) {
 	ok, resp, err := client.SendRequest("invalid", true, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(resp) != 0 {
-		t.Fatalf("expected request response to be empty, got %v", resp)
-	}
-	if ok {
-		t.Fatalf("expected false from \"ok\"")
-	}
-
-	ok, resp, err = client.SendRequest("tcpip-forward", true, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

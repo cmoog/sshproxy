@@ -29,11 +29,12 @@ setup/tests: build/image/tests clean
 .PHONY: setup/tests
 
 test: setup/tests
-	go test ./... \
+	go test . \
 		-count 10 \
 		-race \
 		-coverprofile=coverage.txt -covermode=atomic \
 		-ssh-addr localhost:$(TEST_SERVER_PORT) \
 		-ssh-user $(TEST_USER) \
 		-ssh-passwd $(TEST_PASSWORD)
+	docker kill $(TEST_CONTAINER_NAME)
 .PHONY: test
