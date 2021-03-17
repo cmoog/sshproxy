@@ -213,7 +213,7 @@ func testEnvironmentVar(t *testing.T, client *ssh.Client) {
 	for k, v := range setEnvs {
 		err := session.Setenv(k, v)
 		if err != nil {
-			t.Fatalf("set enviornment variable: %v", err)
+			t.Fatalf("set environment variable: %v", err)
 		}
 	}
 
