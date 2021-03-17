@@ -98,9 +98,8 @@ func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.Ne
 // processRequests handles each *ssh.Request in series.
 func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh.Request, logger logger) {
 	for req := range requests {
-		req := req
 		err := handleRequest(ctx, dest, req)
-		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
+		if err != nil && !errors.Is(err, io.EOF) {
 			logger.Printf("sshutil: ReverseProxy handle request error: %v", err)
 		}
 	}

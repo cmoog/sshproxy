@@ -12,7 +12,7 @@ build/image/tests:
 		--build-arg PORT=$(TEST_SERVER_PORT) \
 		--build-arg USER=$(TEST_USER) \
 		--build-arg PASSWORD=$(TEST_PASSWORD) \
-		--file ssh-target.Dockerfile \
+		--file test.Dockerfile \
 		.
 .PHONY: build/image/tests
 
@@ -38,3 +38,6 @@ test: setup/tests
 		-ssh-passwd $(TEST_PASSWORD)
 	docker kill $(TEST_CONTAINER_NAME)
 .PHONY: test
+
+fmt:
+	go fmt
