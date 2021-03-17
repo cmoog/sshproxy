@@ -30,7 +30,7 @@ setup/tests: build/image/tests clean
 
 test: setup/tests
 	go test . \
-		-count 10 \
+		-count 20 \
 		-race \
 		-coverprofile=coverage.txt -covermode=atomic \
 		-ssh-addr localhost:$(TEST_SERVER_PORT) \

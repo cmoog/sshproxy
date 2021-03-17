@@ -29,6 +29,7 @@ func testSSHClient(t *testing.T, client *ssh.Client) {
 	t.Run("unix_forward", func(t *testing.T) { t.Skip(); testUnixForward(t, client) })
 	t.Run("invalid_request", func(t *testing.T) { testRequestError(t, client) })
 	t.Run("channel_error", func(t *testing.T) { testChannelError(t, client) })
+	t.Run("x11_request", func(t *testing.T) { testX11Forwarding(t, client) })
 }
 
 func testTCPLocal(t *testing.T, client *ssh.Client) {
@@ -67,6 +68,13 @@ func testUnixForward(t *testing.T, client *ssh.Client) {
 		t.Fatalf("new unix socket pipe: %v", err)
 	}
 	testConnPipe(t, left, right)
+}
+
+func testX11Forwarding(t *testing.T, client *ssh.Client) {
+	_, _, err := client.SendRequest("x11-req", true, nil)
+	if err != nil {
+		t.Fatalf("new x11 forward request: %v", err)
+	}
 }
 
 func testTCPRemote(t *testing.T, client *ssh.Client) {

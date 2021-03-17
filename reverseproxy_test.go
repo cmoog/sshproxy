@@ -80,6 +80,62 @@ func Test_reverseProxy(t *testing.T) {
 	wg.Wait()
 }
 
+func Test_dialFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientConfig := &ssh.ClientConfig{
+		User:            *user,
+		Auth:            []ssh.AuthMethod{ssh.Password(*password)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         3 * time.Second,
+	}
+
+	proxy := NewSingleHostReverseProxy("/tmp/sshutil-null.sock", clientConfig)
+	err := proxy.Serve(ctx, nil, nil, nil)
+	if err == nil {
+		t.Fatalf("expected error from reverse proxy, got: %v", err)
+	}
+	if err.Error() != "dial reverse proxy target: dial tcp: address /tmp/sshutil-null.sock: missing port in address" {
+		t.Fatalf("unexpected error, got: %v", err)
+	}
+}
+
+func Test_serverConnFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientConfig := &ssh.ClientConfig{
+		User:            *user,
+		Auth:            []ssh.AuthMethod{ssh.Password(*password)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         3 * time.Second,
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("unexpected error, got: %v", err)
+	}
+
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			t.Errorf("unexpected error, got: %v", err)
+			return
+		}
+		err = conn.Close()
+		if err != nil {
+			t.Errorf("unexpected error, got: %v", err)
+		}
+	}()
+
+	proxy := NewSingleHostReverseProxy(listener.Addr().String(), clientConfig)
+	err = proxy.Serve(ctx, nil, nil, nil)
+	if err == nil {
+		t.Fatalf("expected error from reverse proxy, got: %v", err)
+	}
+}
+
 func generateSigner() (ssh.Signer, error) {
 	const blockType = "EC PRIVATE KEY"
 	pkey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
