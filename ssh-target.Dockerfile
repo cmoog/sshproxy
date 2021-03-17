@@ -1,3 +1,6 @@
+# This Dockerfile specifies an image for use as a testing target, whereby
+# its OpenSSH server is accessed through sshutil.ReverseProxy and verified
+# to respond as expected.
 FROM ubuntu:20.04
 
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y \
