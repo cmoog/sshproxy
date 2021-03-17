@@ -12,8 +12,9 @@ import (
 	"net"
 	"time"
 
-	"cmoog.io/sshutil"
 	"golang.org/x/crypto/ssh"
+
+	"cmoog.io/sshutil"
 )
 
 // The following example demonstrates a simple usage of sshutil.ReverseProxy.

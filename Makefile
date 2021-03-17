@@ -41,3 +41,5 @@ test: setup/tests
 
 fmt:
 	go fmt
+	goimports -w -local=cmoog.io $(shell git ls-files '*.go')
+.PHONY: fmt
