@@ -23,7 +23,7 @@ type ReverseProxy struct {
 	ErrorLog *log.Logger
 }
 
-// NewSingleHostReverseProxy constructs a new *ReverseProxy instance.
+// New constructs a new *ReverseProxy instance.
 func New(targetAddr string, clientConfig *ssh.ClientConfig) *ReverseProxy {
 	return &ReverseProxy{
 		TargetAddress:      targetAddr,
