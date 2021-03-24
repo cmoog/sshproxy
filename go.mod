@@ -1,4 +1,4 @@
-module cmoog.io/sshutil
+module cmoog.io/sshproxy
 
 go 1.16
 

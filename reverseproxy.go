@@ -1,4 +1,4 @@
-package sshutil
+package sshproxy
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type ReverseProxy struct {
 }
 
 // NewSingleHostReverseProxy constructs a new *ReverseProxy instance.
-func NewSingleHostReverseProxy(targetAddr string, clientConfig *ssh.ClientConfig) *ReverseProxy {
+func New(targetAddr string, clientConfig *ssh.ClientConfig) *ReverseProxy {
 	return &ReverseProxy{
 		TargetAddress:      targetAddr,
 		TargetClientConfig: clientConfig,
@@ -89,7 +89,7 @@ func processChannels(ctx context.Context, destConn ssh.Conn, chans <-chan ssh.Ne
 		go func() {
 			err := handleChannel(ctx, destConn, newCh, logger)
 			if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
-				logger.Printf("sshutil: ReverseProxy handle channel error: %v", err)
+				logger.Printf("sshproxy: ReverseProxy handle channel error: %v", err)
 			}
 		}()
 	}
@@ -100,7 +100,7 @@ func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh
 	for req := range requests {
 		err := handleRequest(ctx, dest, req)
 		if err != nil && !errors.Is(err, io.EOF) {
-			logger.Printf("sshutil: ReverseProxy handle request error: %v", err)
+			logger.Printf("sshproxy: ReverseProxy handle request error: %v", err)
 		}
 	}
 }
@@ -179,12 +179,12 @@ func copyChannels(w, r ssh.Channel, logger logger) {
 		defer close(copyDone)
 		_, err := io.Copy(w, r)
 		if err != nil && !errors.Is(err, io.EOF) {
-			logger.Printf("sshutil: bicopy channel: %v", err)
+			logger.Printf("sshproxy: bicopy channel: %v", err)
 		}
 	}()
 	_, err := io.Copy(w.Stderr(), r.Stderr())
 	if err != nil && !errors.Is(err, io.EOF) {
-		logger.Printf("sshutil: bicopy channel: %v", err)
+		logger.Printf("sshproxy: bicopy channel: %v", err)
 	}
 	<-copyDone
 }

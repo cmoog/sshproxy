@@ -1,3 +1,3 @@
-// Package sshutil provides higher-level SSH features built
+// Package sshproxy provides a slim SSH reverse proxy built
 // atop the `golang.org/x/crypto/ssh` package.
-package sshutil // import "cmoog.io/sshutil"
+package sshproxy // import "cmoog.io/sshproxy"

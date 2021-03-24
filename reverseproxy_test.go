@@ -1,4 +1,4 @@
-package sshutil
+package sshproxy
 
 import (
 	"context"
@@ -71,7 +71,7 @@ func Test_reverseProxy(t *testing.T) {
 		t.Fatalf("accept server conn: %v", err)
 	}
 
-	proxy := NewSingleHostReverseProxy(*addr, clientConfig)
+	proxy := New(*addr, clientConfig)
 	proxy.ErrorLog = log.Default()
 	err = proxy.Serve(ctx, serverConn, serverChans, serverReqs)
 	if err == nil {
@@ -91,12 +91,12 @@ func Test_dialFailure(t *testing.T) {
 		Timeout:         3 * time.Second,
 	}
 
-	proxy := NewSingleHostReverseProxy("/tmp/sshutil-null.sock", clientConfig)
+	proxy := New("/tmp/sshproxy-null.sock", clientConfig)
 	err := proxy.Serve(ctx, nil, nil, nil)
 	if err == nil {
 		t.Fatalf("expected error from reverse proxy, got: %v", err)
 	}
-	if err.Error() != "dial reverse proxy target: dial tcp: address /tmp/sshutil-null.sock: missing port in address" {
+	if err.Error() != "dial reverse proxy target: dial tcp: address /tmp/sshproxy-null.sock: missing port in address" {
 		t.Fatalf("unexpected error, got: %v", err)
 	}
 }
@@ -129,7 +129,7 @@ func Test_serverConnFailure(t *testing.T) {
 		}
 	}()
 
-	proxy := NewSingleHostReverseProxy(listener.Addr().String(), clientConfig)
+	proxy := New(listener.Addr().String(), clientConfig)
 	err = proxy.Serve(ctx, nil, nil, nil)
 	if err == nil {
 		t.Fatalf("expected error from reverse proxy, got: %v", err)

@@ -1,8 +1,8 @@
 SHELL := /bin/bash
 
-TEST_IMG_TAG := sshutil-test-target
+TEST_IMG_TAG := sshproxy-test-target
 TEST_SERVER_PORT := 2222
-TEST_CONTAINER_NAME := sshutil-test-target
+TEST_CONTAINER_NAME := sshproxy-test-target
 TEST_USER := test
 TEST_PASSWORD := testpassword
 
@@ -21,7 +21,8 @@ clean:
 .PHONY: clean
 
 setup/tests: build/image/tests clean
-	docker run --detach \
+	docker run \
+		--detach \
 		--rm \
 		--network host \
 		--name $(TEST_CONTAINER_NAME) \
@@ -32,7 +33,8 @@ test: setup/tests
 	go test . \
 		-count 20 \
 		-race \
-		-coverprofile=coverage.txt -covermode=atomic \
+		-coverprofile coverage.txt \
+		-covermode atomic \
 		-ssh-addr localhost:$(TEST_SERVER_PORT) \
 		-ssh-user $(TEST_USER) \
 		-ssh-passwd $(TEST_PASSWORD)

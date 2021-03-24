@@ -1,4 +1,4 @@
-package sshutil
+package sshproxy
 
 import (
 	"bufio"
@@ -267,7 +267,7 @@ func tcpPipeWithDialer(dial dialer, listen listener) (net.Conn, net.Conn, error)
 }
 
 func unixSocketPipe(t *testing.T, dial dialer, listen listener) (net.Conn, net.Conn, error) {
-	socket := filepath.Join("/tmp", "sshutil-unix-test-"+strconv.Itoa(rand.Int())+".sock")
+	socket := filepath.Join("/tmp", "sshproxy-unix-test-"+strconv.Itoa(rand.Int())+".sock")
 	cleanup := func() { _ = os.Remove(socket) }
 	cleanup()
 	t.Cleanup(cleanup)

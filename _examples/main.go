@@ -12,12 +12,11 @@ import (
 	"net"
 	"time"
 
+	"cmoog.io/sshproxy"
 	"golang.org/x/crypto/ssh"
-
-	"cmoog.io/sshutil"
 )
 
-// The following example demonstrates a simple usage of sshutil.ReverseProxy.
+// The following example demonstrates a simple usage of sshproxy.ReverseProxy.
 //
 // Run this example on your local machine, with "username" and "password"
 // substituted properly. This will allow you to dial port 2222 and be reverse
@@ -60,7 +59,7 @@ func main() {
 				log.Println(err)
 				return
 			}
-			rp := sshutil.NewSingleHostReverseProxy("localhost:22", &ssh.ClientConfig{
+			rp := sshproxy.New("localhost:22", &ssh.ClientConfig{
 				User:            exampleUsername,
 				Auth:            []ssh.AuthMethod{ssh.Password(examplePassword)},
 				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
