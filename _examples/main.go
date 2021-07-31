@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"cmoog.io/sshproxy"
+	"github.com/cmoog/sshproxy"
 )
 
 // The following example demonstrates a simple usage of sshproxy.ReverseProxy.

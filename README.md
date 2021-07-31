@@ -1,14 +1,14 @@
 # sshproxy
 
-[![Documentation](https://godoc.org/cmoog.io/sshproxy?status.svg)](https://pkg.go.dev/cmoog.io/sshproxy)
-[![Go Report Card](https://goreportcard.com/badge/cmoog.io/sshproxy)](https://goreportcard.com/report/cmoog.io/sshproxy)
+[![Documentation](https://godoc.org/github.com/cmoog/sshproxy?status.svg)](https://pkg.go.dev/github.com/cmoog/sshproxy)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cmoog/sshproxy)](https://goreportcard.com/report/github.com/cmoog/sshproxy)
 [![codecov](https://codecov.io/gh/cmoog/sshproxy/branch/master/graph/badge.svg?token=IQ87G7H7OA)](https://codecov.io/gh/cmoog/sshproxy)
 
 Package sshproxy provides a slim SSH reverse proxy built
 atop the `golang.org/x/crypto/ssh` package.
 
 ```text
-go get cmoog.io/sshproxy
+go get github.com/cmoog/sshproxy
 ```
 
 ## Authorization termination proxy
@@ -35,7 +35,7 @@ package main
 import (
   "net"
   "golang.org/x/crypto/ssh"
-  "cmoog.io/sshproxy"
+  "github.com/cmoog/sshproxy"
 )
 
 func main() {

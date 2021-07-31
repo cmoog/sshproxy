@@ -1,4 +1,4 @@
-module cmoog.io/sshproxy
+module github.com/cmoog/sshproxy
 
 go 1.16
 
