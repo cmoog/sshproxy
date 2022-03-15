@@ -1,4 +1,4 @@
-SHELL := /bin/bash
+SHELL := /usr/bin/env bash
 
 TEST_IMG_TAG := sshproxy-test-target
 TEST_SERVER_PORT := 2222

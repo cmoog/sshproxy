@@ -74,10 +74,10 @@ func (r *ReverseProxy) Serve(ctx context.Context, serverConn *ssh.ServerConn, se
 type defaultLogger struct{}
 
 // wrap the default logger
-func (defaultLogger) Printf(format string, v ...interface{}) { log.Printf(format, v...) }
+func (defaultLogger) Printf(format string, v ...any) { log.Printf(format, v...) }
 
 type logger interface {
-	Printf(format string, v ...interface{})
+	Printf(format string, v ...any)
 }
 
 // processChannels handles each ssh.NewChannel concurrently.
