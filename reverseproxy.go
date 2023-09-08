@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// ReverseProxy is an SSH Handler that takes an incoming request and sends it to another server,
-// proxying the response back to the client.
+// ReverseProxy is an SSH Handler that takes an incoming request and sends it
+// to another server, proxying the response back to the client.
 type ReverseProxy struct {
 	TargetAddress      string
 	TargetClientConfig *ssh.ClientConfig
@@ -105,7 +105,8 @@ func processRequests(ctx context.Context, dest requestDest, requests <-chan *ssh
 	}
 }
 
-// handleChannel performs the bicopy between the destination SSH connection and a new incoming channel.
+// handleChannel performs the bicopy between the destination SSH connection and a
+// new incoming channel.
 func handleChannel(ctx context.Context, destConn ssh.Conn, newChannel ssh.NewChannel, logger logger) error {
 	destCh, destReqs, err := destConn.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
 	if err != nil {
@@ -189,8 +190,9 @@ func copyChannels(w, r ssh.Channel, logger logger) {
 	<-copyDone
 }
 
-// channelRequestDest wraps the ssh.Channel type to conform with the standard SendRequest function signiture.
-// This allows for convenient code re-use in piping channel-level requests as well as global, connection-level
+// channelRequestDest wraps the ssh.Channel type to conform with the standard
+// SendRequest function signiture. This allows for convenient code re-use in
+// piping channel-level requests as well as global, connection-level
 // requests.
 type channelRequestDest struct {
 	ssh.Channel
